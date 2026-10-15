@@ -1,0 +1,10 @@
+[Unit]
+Description=Analyzer test port state for the GUI in /run/analyzer/ports.json
+
+[Service]
+ExecStart=/usr/bin/python3 /home/muk0015/diploma_project/port_status.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

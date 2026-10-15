@@ -1,0 +1,6 @@
+{
+ "dns_name": "www.vsb.cz",
+ "targets": [{"host": "www.vsb.cz", "tcp": 443}],
+ "dhcp_wait_s": 4,
+ "ra_wait_s": 3
+}

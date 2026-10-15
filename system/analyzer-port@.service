@@ -1,0 +1,10 @@
+[Unit]
+Description=Analyzer test port %i into its network namespace, nothing served
+After=sys-subsystem-net-devices-%i.device
+
+[Service]
+Type=oneshot
+ExecStart=/home/muk0015/diploma_project/setup_network.sh port %i
+
+[Install]
+WantedBy=sys-subsystem-net-devices-%i.device
