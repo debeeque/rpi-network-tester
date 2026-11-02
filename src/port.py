@@ -261,9 +261,8 @@ class PortScreen(FunctionScreen):
 
     def best(self, port):
         res = self.neigh.get(port) or {}
-        found = res.get("neighbors") or []
-        foreign = [n for n in found if n.get("origin") == "FOREIGN"]
-        return (foreign or found or [None])[0]
+        return min(res.get("neighbors") or [], key=lambda n: (n.get("origin") != "FOREIGN", n.get("proto") != "LLDP"),
+                   default=None)
 
     def own_port(self, mac):
         for name, p in self.app.port_state().get("ports", {}).items():

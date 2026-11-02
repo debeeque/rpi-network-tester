@@ -36,6 +36,8 @@ CAPS = ("other", "repeater", "mac_bridge", "wlan_access_point", "router", "telep
         "docsis_cable_device", "station_only", "c_vlan_component", "s_vlan_component", "two_port_mac_relay")
 STP_VERSION = {0: "STP", 2: "RSTP", 3: "MSTP"}
 SO_ATTACH_FILTER = 26
+# Switches often send CDP and LLDP together; keep listening a little for the second one
+GRACE_S = 2.0
 
 stop = {"flag": False}
 
@@ -140,7 +142,7 @@ def parse_cdp(pkt):
         elif name == "CDPMsgPlatform":
             n["platform"] = text(msg.val)
         elif name == "CDPMsgSoftwareVersion":
-            n["system_descr"] = text(msg.val).splitlines()[0] if text(msg.val) else ""
+            n["system_descr"] = text(next((line for line in msg.val.splitlines() if line.strip()), ""))
         elif name == "CDPMsgNativeVLAN":
             n["vlan"] = msg.vlan
         elif name in ("CDPMsgAddr", "CDPMsgMgmtAddr"):
@@ -196,7 +198,7 @@ def main():
     ap = argparse.ArgumentParser(description="Passive L2 listener: LLDP, CDP, STP, LACP, 802.1Q tags")
     ap.add_argument("iface")
     ap.add_argument("-t", "--timeout", type=float, default=65.0, help="seconds to listen, 0 = do not listen")
-    ap.add_argument("--all", action="store_true", help="listen the whole time instead of stopping at the first LLDP/CDP")
+    ap.add_argument("--all", action="store_true", help="listen the whole time instead of stopping soon after the first LLDP/CDP")
     ap.add_argument("--own", default="", help="MAC addresses of this device, comma separated")
     ap.add_argument("--hello", action="store_true", help="send one LLDP frame first (the only frame this script sends)")
     args = ap.parse_args()
@@ -289,7 +291,7 @@ def main():
         iface, args.timeout, "" if args.hello else "; sending nothing"), flush=True)
     deadline = start + args.timeout
     while time.monotonic() < deadline and not stop["flag"]:
-        if res["neighbors"] and not args.all:
+        if res["neighbors"] and not args.all and time.monotonic() - start >= res["neighbors"][0]["at_s"] + GRACE_S:
             res["stopped_early"] = True
             break
         time.sleep(0.2)
@@ -300,8 +302,7 @@ def main():
     res["listened_s"] = round(time.monotonic() - start, 1)
     res["aborted"] = stop["flag"]
 
-    foreign = [n for n in res["neighbors"] if n["origin"] == "FOREIGN"]
-    best = (foreign or res["neighbors"] or [None])[0]
+    best = min(res["neighbors"], key=lambda n: (n["origin"] != "FOREIGN", n["proto"] != "LLDP"), default=None)
     if best:
         who = "this device" if best["origin"] == "THIS DEVICE" else "neighbour"
         res.update(verdict="PASS", short="%s %s via %s" % (who, summary(best), best["proto"]))
