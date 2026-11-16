@@ -1,4 +1,5 @@
 import argparse
+import atexit
 import csv
 import json
 import os
@@ -132,6 +133,7 @@ def peer_server(res, keep):
         return None
     cmd = ["ip", "netns", "exec", ns, "iperf3", "-s", "-p", str(PORT)] + ([] if keep else ["-1"])
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    atexit.register(proc.terminate)
     time.sleep(0.7)
     print("Receiver  : iperf3 server started on %s for this test" % port, flush=True)
     return proc

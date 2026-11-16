@@ -1,4 +1,5 @@
 import argparse
+import atexit
 import collections
 import json
 import os
@@ -188,11 +189,13 @@ def main():
     saved = offloads(args.iface)
     if not args.keep_offload:
         set_offloads(args.iface, {k: "off" for k in saved})
+        atexit.register(set_offloads, args.iface, saved)
 
     cmd = ["tcpdump", "-i", args.iface, "-U", "-w", "-", "-s", str(args.snaplen), "-B", str(args.buffer_kb)]
     if args.bpf:
         cmd.append(args.bpf)
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=1 << 20)
+    atexit.register(proc.kill)
 
     stats = Stats(args.feed)
     tee = PcapTee(args.pcap, int(args.max_mb * 1e6))
@@ -265,6 +268,7 @@ def main():
     done.wait(5)
     if not args.keep_offload:
         set_offloads(args.iface, saved)
+        atexit.unregister(set_offloads)
     tee.close()
     if csv:
         csv.close()
